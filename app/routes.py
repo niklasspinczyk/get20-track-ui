@@ -38,7 +38,6 @@ threading.Thread(target=fetch_run_counter, daemon=True).start()
 
 def add_run(id, vehicle, team, driver, transponder):
     url_new = f'{RACE_RESULT_BASE_URL}/_UPFPQ/api/part/new?lang=en&firstfree=0&bib={id}&v2=true&pw=0'
-    url_create = f'{RACE_RESULT_BASE_URL}/_UPFPQ/api/part/savefields?lang=en&pid=41&nohistory=1&pw=0'
     data_create = {"Bib":str(id),"Lastname":vehicle,"Firstname":driver,"Title":"","DateOfBirth":"","Sex":"","Contest":str(CONTEST_ID),"AgeGroup1":"0","Club":team,"Status":"0","Comment":"","TeamStatus":""}
     url_load = f'{RACE_RESULT_BASE_URL}/_UPFPQ/api/chipfile/get?lang=en&pw=0'
     url_save = f'{RACE_RESULT_BASE_URL}/_UPFPQ/api/chipfile/save?lang=en&pw=0'
@@ -47,19 +46,32 @@ def add_run(id, vehicle, team, driver, transponder):
         print('calling new')
         new_resp = requests.get(url_new, timeout=5)
         new_resp.raise_for_status()
+        pid = new_resp.json()['ID']
+
+        url_create = f'{RACE_RESULT_BASE_URL}/_UPFPQ/api/part/savefields?lang=en&pid={pid}&nohistory=1&pw=0'
 
         print('calling create')
-        pprint(data_create)
-        create_resp = requests.post(url_create, json=data_create, timeout=5)
+        create_resp = requests.post(
+            url_create,
+            data=json.dumps(data_create).encode('utf-8'),
+            headers={"Content-Type": "text/plain; charset=utf-8"},
+            timeout=5
+        )
         create_resp.raise_for_status()
 
         print('calling load')
         load_resp = requests.get(url_load)
         load_resp.raise_for_status()
-        load_str = create_resp.content.decode('utf-8')
+        load_str = load_resp.text
+        # print(load_str.replace('\n', '\\n').replace('\r', '\\r'))
+
+        # check chip file
+        load_lines = load_str.splitlines()
+        if len(load_lines) <= 0 or len(load_lines[0]) < 11:
+            raise Exception("invalid chip file")
 
         print('calling save')
-        load_str += f"\n{transponder};{id}"
+        load_str += f"\r\n{transponder};{id}"
         save_resp = requests.post(url_save, data=load_str.encode('utf-8'))
         save_resp.raise_for_status()
     except Exception as e:
