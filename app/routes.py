@@ -9,11 +9,24 @@ from pprint import pprint
 app = Blueprint('app', __name__)
 
 DATA_FILE = os.path.join('data', 'database.json')
+ADMIN_FILE = os.path.join('data', 'admin.json')
 RACE_RESULT_BASE_URL = "http://192.168.0.58:4880"  # <-- Set your real Race Result server URL here
 CONTESTS = [
     {
         "name": "AutoX",
         "id": 1
+    },
+    {
+        "name": "Endurance",
+        "id": 2
+    },
+    {
+        "name": "Double Accel",
+        "id": 3
+    },
+    {
+        "name": "AutoX Staffel",
+        "id": 4
     }
 ]
 
@@ -91,6 +104,16 @@ def save_data(data):
     with open(DATA_FILE, 'w') as file:
         json.dump(data, file, indent=2)
 
+def load_admin():
+    if not os.path.exists(ADMIN_FILE):
+        return {"contest_id": CONTEST_ID}
+    with open(ADMIN_FILE, 'r') as f:
+        return json.load(f)
+
+def save_admin(admin_data):
+    with open(ADMIN_FILE, 'w') as f:
+        json.dump(admin_data, f, indent=2)
+
 
 @app.route("/")
 def index():
@@ -153,3 +176,17 @@ def add_driver():
     team['drivers'].append(driver_name)
     save_data(data)
     return jsonify({"success": True}), 200
+
+
+@app.route("/admin", methods=["GET", "POST"])
+def admin_panel():
+    admin_data = load_admin()
+    if request.method == "POST":
+        contest_id = request.form.get("contest_id", type=int)
+        if contest_id and any(c["id"] == contest_id for c in CONTESTS):
+            admin_data["contest_id"] = contest_id
+            save_admin(admin_data)
+        # Optionally, update global CONTEST_ID here if you want it to take effect immediately
+        global CONTEST_ID
+        CONTEST_ID = contest_id
+    return render_template("admin.html", contests=CONTESTS, current_id=admin_data.get("contest_id", CONTEST_ID))
