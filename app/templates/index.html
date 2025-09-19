@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GET20 Track UI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f6f8fa;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 500px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 32px;
+        }
+        h1 {
+            text-align: center;
+            color: #222;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            margin-top: 24px;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        select, button, input[type="text"] {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #bbb;
+            font-size: 1em;
+        }
+        button {
+            background: #007bff;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .collapsible {
+            background-color: #eee;
+            color: #222;
+            cursor: pointer;
+            padding: 12px;
+            width: 100%;
+            border: none;
+            text-align: left;
+            outline: none;
+            font-size: 1.1em;
+            margin-top: 32px;
+            border-radius: 6px;
+        }
+        .active, .collapsible:hover {
+            background-color: #ccc;
+        }
+        .content {
+            padding: 0 18px;
+            display: none;
+            overflow: hidden;
+            background-color: #f9f9f9;
+            border-radius: 0 0 6px 6px;
+            margin-bottom: 16px;
+        }
+        .edit-form {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-top: 16px;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Assign Driver to Vehicle</h1>
+    <form id="assign-form">
+        <div>
+            <label for="team-select">Team</label>
+            <select id="team-select" required>
+                <option value="" disabled selected>Select team</option>
+                {% for team in teams %}
+                    <option value="{{ team.name }}">{{ team.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="driver-select">Driver</label>
+            <select id="driver-select" required>
+                <option value="" disabled selected>Select driver</option>
+            </select>
+        </div>
+        <div>
+            <label for="vehicle-select">Vehicle</label>
+            <select id="vehicle-select" required>
+                <option value="" disabled selected>Select vehicle</option>
+            </select>
+        </div>
+        <button type="submit">Assign</button>
+    </form>
+
+    <button type="button" class="collapsible">Edit Data: Assign Driver to Team</button>
+    <div class="content">
+        <form id="edit-driver-form" class="edit-form">
+            <div>
+                <label for="edit-team-select">Team</label>
+                <select id="edit-team-select" required>
+                    <option value="" disabled selected>Select team</option>
+                    {% for team in teams %}
+                        <option value="{{ team.name }}">{{ team.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="edit-driver-name">Driver Name</label>
+                <input type="text" id="edit-driver-name" required placeholder="Enter driver name">
+            </div>
+            <button type="submit">Add Driver</button>
+        </form>
+        <div id="edit-driver-message"></div>
+    </div>
+</div>
+<script>
+const teams = {{ teams|tojson }};
+const vehicles = {{ vehicles|tojson }};
+const teamSelect = document.getElementById('team-select');
+const driverSelect = document.getElementById('driver-select');
+const vehicleSelect = document.getElementById('vehicle-select');
+
+teamSelect.addEventListener('change', function() {
+    const selectedTeam = teams.find(t => t.name === this.value);
+
+    // update drivers
+    driverSelect.innerHTML = '<option value="" disabled selected>Select driver</option>';
+    if (selectedTeam && selectedTeam.drivers) {
+        selectedTeam.drivers.forEach(driver => {
+            const opt = document.createElement('option');
+            opt.value = driver;
+            opt.textContent = driver;
+            driverSelect.appendChild(opt);
+        });
+    }
+
+    // Update vehicles
+    vehicleSelect.innerHTML = '<option value="" disabled selected>Select vehicle</option>';
+    if (selectedTeam && selectedTeam.vehicles) {
+        selectedTeam.vehicles.forEach(vehicleName => {
+            const vehicle = vehicles.find(v => v.name === vehicleName);
+            if (vehicle) {
+                const opt = document.createElement('option');
+                opt.value = vehicle.name;
+                opt.textContent = vehicle.name;
+                vehicleSelect.appendChild(opt);
+            }
+        });
+    }
+});
+
+document.getElementById('assign-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const team = teamSelect.value;
+    const driver = driverSelect.value;
+    const vehicle = vehicleSelect.value;
+
+    fetch('/assign', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({team, driver, vehicle})
+    }).then(resp => {
+        if (resp.ok) {
+            alert(`Assigned ${driver} to ${vehicle} for ${team}`);
+        } else {
+            alert('Assignment failed');
+        }
+    });
+});
+
+// Collapsible pane logic
+const coll = document.querySelector('.collapsible');
+const content = document.querySelector('.content');
+coll.addEventListener('click', function() {
+    this.classList.toggle('active');
+    if (content.style.display === "block") {
+        content.style.display = "none";
+    } else {
+        content.style.display = "block";
+    }
+});
+
+// Edit driver form logic
+document.getElementById('edit-driver-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const team = document.getElementById('edit-team-select').value;
+    const driver = document.getElementById('edit-driver-name').value.trim();
+    const msgDiv = document.getElementById('edit-driver-message');
+    if (!team || !driver) {
+        msgDiv.textContent = "Please select a team and enter a driver name.";
+        msgDiv.style.color = "red";
+        return;
+    }
+    fetch('/add_driver', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({team, driver})
+    }).then(resp => resp.json())
+    .then(data => {
+        if (data.success) {
+            msgDiv.textContent = "Driver added successfully!";
+            msgDiv.style.color = "green";
+            // Update the teams variable in JS
+            const teamObj = teams.find(t => t.name === team);
+            if (teamObj) {
+                if (!teamObj.drivers) teamObj.drivers = [];
+                teamObj.drivers.push(driver);
+            }
+            // If the currently selected team is the one we just edited, update the driver dropdown
+            if (teamSelect.value === team) {
+                const opt = document.createElement('option');
+                opt.value = driver;
+                opt.textContent = driver;
+                driverSelect.appendChild(opt);
+            }
+        } else {
+            msgDiv.textContent = data.error || "Failed to add driver.";
+            msgDiv.style.color = "red";
+        }
+    }).catch(() => {
+        msgDiv.textContent = "Failed to add driver.";
+        msgDiv.style.color = "red";
+    });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+{
+  "teams": [
+    {
+      "name": "GET Racing",
+      "drivers": [
+        "Dustin"
+      ],
+      "vehicles": [
+        "FS213",
+        "FS218",
+        "FS219",
+        "FS221",
+        "FS223",
+        "FS224",
+        "FS225"
+      ]
+    },
+    {
+      "name": "RUB",
+      "vehicles": [
+        "RUB18",
+        "RUB20",
+        "RUB23e",
+        "RUB25e"
+      ],
+      "drivers": [
+        "Cilly"
+      ]
+    },
+    {
+      "name": "WOB racing",
+      "vehicles": [
+        "FS2008"
+      ]
+    },
+    {
+      "name": "HSNR racing",
+      "vehicles": [
+        "RS-18c",
+        "RS-23c"
+      ]
+    },
+    {
+      "name": "Lions Racing",
+      "vehicles": [
+        "LR08"
+      ]
+    },
+    {
+      "name": "Delta racing",
+      "vehicles": [
+        "DR25e"
+      ]
+    },
+    {
+      "name": "RaceIng",
+      "vehicles": [
+        "Rhino4",
+        "RI15",
+        "RI9"
+      ]
+    },
+    {
+      "name": "Green Lions Racing",
+      "vehicles": [
+        "C13"
+      ]
+    },
+    {
+      "name": "Delft",
+      "vehicles": [
+        "DUT25"
+      ]
+    }
+  ],
+  "vehicles": [
+    {
+      "name": "FS213"
+    },
+    {
+      "name": "FS218",
+      "transponder": "ZJLER58"
+    },
+    {
+      "name": "FS219",
+      "transponder": "ZJLER59"
+    },
+    {
+      "name": "FS221",
+      "transponder": "ZJABK98"
+    },
+    {
+      "name": "FS223",
+      "transponder": "ZJEDN70"
+    },
+    {
+      "name": "FS224",
+      "transponder": "ZJEDJ96"
+    },
+    {
+      "name": "FS225",
+      "transponder": "ZJEDK05"
+    },
+    {
+      "name": "RUB18"
+    },
+    {
+      "name": "RUB20",
+      "transponder": "ZJLER60"
+    },
+    {
+      "name": "RUB23e",
+      "transponder": "ZJEDJ88"
+    },
+    {
+      "name": "RUB25e",
+      "transponder": "ZJLEQ94"
+    },
+    {
+      "name": "FS2008"
+    },
+    {
+      "name": "LR08",
+      "transponder": "ZJABH45"
+    },
+    {
+      "name": "RS-18c",
+      "transponder": "ZJLEQ90"
+    },
+    {
+      "name": "RS-23c",
+      "transponder": "ZLJEQ89"
+    },
+    {
+      "name": "DR25e",
+      "transponder": "ZJEDN68"
+    },
+    {
+      "name": "Rhino4",
+      "transponder": "ZJLER66"
+    }
+  ]
+}
