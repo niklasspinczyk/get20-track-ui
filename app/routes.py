@@ -14,39 +14,42 @@ RACE_RESULT_BASE_URL = "http://192.168.0.58:4880"  # <-- Set your real Race Resu
 CONTESTS = [
     {
         "name": "AutoX",
-        "id": 1
+        "id": 1,
+        "participants": 1
     },
     {
         "name": "Endurance",
-        "id": 2
+        "id": 2,
+        "participants": 1
     },
     {
         "name": "Double Accel",
-        "id": 3
+        "id": 3,
+        "participants": 1
     },
     {
         "name": "AutoX Staffel",
-        "id": 4
+        "id": 4,
+        "participants": 2
     }
 ]
 
 CONTEST_ID = 1
 
 
-start_number_counter = -1
-
+def current_contest():
+    for c in CONTESTS:
+        if c['id'] == CONTEST_ID:
+            return c
+    raise
 
 def fetch_run_counter():
-    global start_number_counter
-
     url = f'{RACE_RESULT_BASE_URL}/_UPFPQ/api/data/list?lang=en&fields=%5B%22ID%22%2C%22BIB%22%2C%22LASTNAME%22%2C%22FIRSTNAME%22%2C%22CONTEST.NAME%22%5D&filter=matchName(%22%22)&filterbib=0&filtercontest=0&filtersex=&sort=BIB&listformat=jSON&pw=0'
     resp = requests.get(url, timeout=5)
     resp.raise_for_status()
     raw_data = resp.json()
-
-    start_number_counter = max(raw_data, key=lambda l: l[1])[1] + 1
-
-threading.Thread(target=fetch_run_counter, daemon=True).start()
+    
+    return max([it[1] for it in raw_data if (CONTEST_ID * 10000) <= raw_data[1] < ((CONTEST_ID+1)*10000)])
 
 
 def add_run(id, vehicle, team, driver, transponder):
@@ -121,7 +124,8 @@ def index():
     teams = data.get("teams", [])
     vehicles = data.get("vehicles", [])
     discipline = next(iter(c['name'] for c in CONTESTS if c['id'] == CONTEST_ID))
-    return render_template("index.html", teams=teams, vehicles=vehicles, discipline=discipline)
+    relay_participants = current_contest()['participants']
+    return render_template("index.html", teams=teams, vehicles=vehicles, discipline=discipline, relay_participants=relay_participants)
 
 @app.route("/data")
 def get_data():
@@ -130,28 +134,57 @@ def get_data():
 @app.route('/assign', methods=['POST'])
 def assign_driver_to_vehicle():
     global start_number_counter
-    assignment = request.json
-    team_name = assignment.get("team")
-    driver = assignment.get("driver")
-    vehicle_name = assignment.get("vehicle")
+    assignments = request.json
+    
 
     # Increment run counter
-    run_id = start_number_counter
-    start_number_counter += 1
-
-    # Find team and vehicle, get transponder
+    if current_contest()['participants'] != len(assignments):
+        return {"error": "Invalid number of assigned participants for current contest! Refresh the page!"}, 400
+    result = "error"
     data = load_data()
-    team = next((t for t in data["teams"] if t["name"] == team_name), None)
-    vehicle = next((v for v in data["vehicles"] if v["name"] == vehicle_name), None)
-    if not team or not vehicle:
-        return jsonify({"error": "Team or vehicle not found"}), 400
+    if 1 == len(assignments):
+        largest_bib = fetch_run_counter()
+        bib = largest_bib + 1
+        assignment = assignments[0]
+        team_name = assignment.get("team")
+        driver = assignment.get("driver")
+        vehicle_name = assignment.get("vehicle")
+        
+        # Find team and vehicle, get transponder
+        team = next((t for t in data["teams"] if t["name"] == team_name), None)
+        vehicle = next((v for v in data["vehicles"] if v["name"] == vehicle_name), None)
+        if not team or not vehicle:
+            return jsonify({"error": "Team or vehicle not found"}), 400
 
-    transponder = vehicle.get("transponder", "")
-    try:
-        result = add_run(run_id, vehicle_name, team_name, driver, transponder)
-    except Exception as e:
-        return jsonify({"error": "Failed to push to Race Result server", "details": str(e)}), 502
+        transponder = vehicle.get("transponder", "")
+        try:
+            result = add_run(bib, vehicle_name, team_name, driver, transponder)
+        except Exception as e:
+            return jsonify({"error": "Failed to push to Race Result server", "details": str(e)}), 502
 
+    elif 1 < len(assignments) < 10:
+        largest_bib_team = fetch_run_counter() // 10
+        team_num = largest_bib_team + 1
+        result = []
+        for idx, assignment in enumerate(assignments):
+            bib = team_num * 10 + idx
+            team_name = assignment.get("team")
+            driver = assignment.get("driver")
+            vehicle_name = assignment.get("vehicle")
+            team = next((t for t in data["teams"] if t["name"] == team_name), None)
+            vehicle = next((v for v in data["vehicles"] if v["name"] == vehicle_name), None)
+            if not team or not vehicle:
+                return jsonify({"error": "Team or vehicle not found"}), 400
+
+            transponder = vehicle.get("transponder", "")
+            try:
+                result.append(add_run(bib, vehicle_name, team_name, driver, transponder))
+            except Exception as e:
+                return jsonify({"error": "Failed to push to Race Result server", "details": str(e)}), 502
+        
+    else:
+        raise
+        
     return jsonify({"message": "Assignment sent!", "result": result}), 200
 
 

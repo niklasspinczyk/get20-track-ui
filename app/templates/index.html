@@ -121,10 +121,11 @@
 <body>
 <div class="container">
     <h1>{{ discipline }} - Assign Driver to Vehicle</h1>
+    {% if relay_participants == 1 %}
     <form id="assign-form" autocomplete="off">
         <div>
             <label for="team-select">Team</label>
-            <select id="team-select" required>
+            <select id="team-select" class="team-select" required>
                 <option value="" disabled selected>Select team</option>
                 {% for team in teams %}
                     <option value="{{ team.name }}">{{ team.name }}</option>
@@ -133,19 +134,50 @@
         </div>
         <div>
             <label for="driver-select">Driver</label>
-            <select id="driver-select" required>
+            <select id="driver-select" class="driver-select" required>
                 <option value="" disabled selected>Select driver</option>
             </select>
         </div>
         <div>
             <label for="vehicle-select">Vehicle</label>
-            <select id="vehicle-select" required>
+            <select id="vehicle-select" class="vehicle-select" required>
                 <option value="" disabled selected>Select vehicle</option>
             </select>
         </div>
         <button type="submit">Assign</button>
     </form>
-
+    {% else %}
+    <form id="assign-relay-form" autocomplete="off">
+        {% for part_num in range(relay_participants) %}
+        <div>
+            <h2>Participant {{ part_num + 1 }}</h2>
+            <div>
+                <label for="team-select-{{ part_num }}">
+                <select id="team-select-{{ part_num }}" name="team-select-{{ part_num }}" class="team-select" required>
+                    <option value="" disabled selected>Select team</option>
+                    {% for team in teams %}
+                        <option value="{{ team.name }}">{{ team.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="driver-select-{{ part_num }}">Driver</label>
+                <select id="driver-select-{{ part_num }}" name="driver-select-{{ part_num }}" class="driver-select" required>
+                    <option value="" disabled selected>Select driver</option>
+                </select>
+            </div>
+            <div>
+                <label for="vehicle-select-{{ part_num }}">Vehicle</label>
+                <select id="vehicle-select-{{ part_num }}" name="vehicle-select-{{ part_num }}" class="vehicle-select" required>
+                    <option value="" disabled selected>Select vehicle</option>
+                </select>
+            </div>
+            <hr>
+        </div>
+        {% endfor %}
+        <input id="relay-participants" type="hidden" name="relay-participants" value="{{ relay_participants }}">
+    </form>
+    {% endif %}
     <button type="button" class="collapsible">Edit Data: Assign Driver to Team</button>
     <div class="content">
         <form id="edit-driver-form" class="edit-form" autocomplete="off">
@@ -170,40 +202,44 @@
 <script>
 const teams = {{ teams|tojson }};
 const vehicles = {{ vehicles|tojson }};
-const teamSelect = document.getElementById('team-select');
-const driverSelect = document.getElementById('driver-select');
-const vehicleSelect = document.getElementById('vehicle-select');
+const teamSelects = document.getElementsByClassName('team-select');
+const driverSelects = document.getElementsByClassName('driver-select');
+const vehicleSelects = document.getElementsByClassName('vehicle-select');
 
-teamSelect.addEventListener('change', function() {
+teamSelects.forEach(teamSelect => teamSelect.addEventListener('change', function() {
     const selectedTeam = teams.find(t => t.name === this.value);
 
     // update drivers
-    driverSelect.innerHTML = '<option value="" disabled selected>Select driver</option>';
-    if (selectedTeam && selectedTeam.drivers) {
-        selectedTeam.drivers.forEach(driver => {
-            const opt = document.createElement('option');
-            opt.value = driver;
-            opt.textContent = driver;
-            driverSelect.appendChild(opt);
-        });
-    }
+    driverSelects.forEach(driverSelect => {
+        driverSelect.innerHTML = '<option value="" disabled selected>Select driver</option>';
+        if (selectedTeam && selectedTeam.drivers) {
+            selectedTeam.drivers.forEach(driver => {
+                const opt = document.createElement('option');
+                opt.value = driver;
+                opt.textContent = driver;
+                driverSelect.appendChild(opt);
+            });
+        }
+    })
 
     // Update vehicles
-    vehicleSelect.innerHTML = '<option value="" disabled selected>Select vehicle</option>';
-    if (selectedTeam && selectedTeam.vehicles) {
-        selectedTeam.vehicles.forEach(vehicleName => {
-            const vehicle = vehicles.find(v => v.name === vehicleName);
-            if (vehicle) {
-                const opt = document.createElement('option');
-                opt.value = vehicle.name;
-                opt.textContent = vehicle.name;
-                vehicleSelect.appendChild(opt);
-            }
-        });
-    }
-});
-
-document.getElementById('assign-form').addEventListener('submit', function(e) {
+    vehicleSelects.forEach(vehicleSelect => {
+        vehicleSelect.innerHTML = '<option value="" disabled selected>Select vehicle</option>';
+        if (selectedTeam && selectedTeam.vehicles) {
+            selectedTeam.vehicles.forEach(vehicleName => {
+                const vehicle = vehicles.find(v => v.name === vehicleName);
+                if (vehicle) {
+                    const opt = document.createElement('option');
+                    opt.value = vehicle.name;
+                    opt.textContent = vehicle.name;
+                    vehicleSelect.appendChild(opt);
+                }
+            });
+        }
+    })
+}));
+    
+document.getElementById('assign-form')?.addEventListener('submit', function(e) {
     e.preventDefault();
     const team = teamSelect.value;
     const driver = driverSelect.value;
@@ -212,7 +248,7 @@ document.getElementById('assign-form').addEventListener('submit', function(e) {
     fetch('/assign', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({team, driver, vehicle})
+        body: JSON.stringify([{team, driver, vehicle}])
     }).then(resp => {
         if (resp.ok) {
             alert(`Assigned ${driver} to ${vehicle} for ${team}`);
@@ -222,6 +258,30 @@ document.getElementById('assign-form').addEventListener('submit', function(e) {
     });
 });
 
+document.getElementById("assign-relay-form")?.addEventListener('submit', function(e) {
+    e.preventDefault()
+    const count = document.getElementById("relay-participants").value;
+    const participant_data = [];
+    for (let i = 0; i < count; i++) {
+        const team = document.getElementById("team-select-" + i).value;
+        const driver = document.getElementById("driver-select-" + i).value;
+        const vehicle = document.getElementById("vehicle-select-" + i).value;
+        participant_data.push({team, driver, vehicle})
+       
+    }
+    fetch('/assign', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(participant_data)
+    }).then(resp => {
+        if (resp.ok) {
+            alert(`Assigned ${driver} to ${vehicle} for ${team}`);
+        } else {
+            alert('Assignment failed');
+        }
+    });
+})
+    
 // Collapsible pane logic
 const coll = document.querySelector('.collapsible');
 const content = document.querySelector('.content');
