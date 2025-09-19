@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GET20 Track UI</title>
+    <title>GET20 Track UI - {{ discipline }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         body {
@@ -84,7 +84,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>Assign Driver to Vehicle</h1>
+    <h1>{{ discipline }} - Assign Driver to Vehicle</h1>
     <form id="assign-form">
         <div>
             <label for="team-select">Team</label>

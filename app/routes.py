@@ -4,17 +4,18 @@ import json
 import requests
 import threading
 import time
+from pprint import pprint
 
 app = Blueprint('app', __name__)
 
 DATA_FILE = os.path.join('data', 'database.json')
-RACE_RESULT_BASE_URL = "http://192.168.0.58:4880/"  # <-- Set your real Race Result server URL here
-CONTESTS = {
+RACE_RESULT_BASE_URL = "http://192.168.0.58:4880"  # <-- Set your real Race Result server URL here
+CONTESTS = [
     {
         "name": "AutoX",
         "id": 1
     }
-}
+]
 
 CONTEST_ID = 1
 
@@ -25,29 +26,47 @@ start_number_counter = -1
 def fetch_run_counter():
     global start_number_counter
 
-    url = f'http://192.168.0.58:4880/_UPFPQ/api/data/list?lang=en&fields=%5B%22ID%22%2C%22BIB%22%2C%22LASTNAME%22%2C%22FIRSTNAME%22%2C%22CONTEST.NAME%22%5D&filter=matchName(%22%22)&filterbib=0&filtercontest=0&filtersex=&sort=BIB&listformat=jSON&pw=0'
+    url = f'{RACE_RESULT_BASE_URL}/_UPFPQ/api/data/list?lang=en&fields=%5B%22ID%22%2C%22BIB%22%2C%22LASTNAME%22%2C%22FIRSTNAME%22%2C%22CONTEST.NAME%22%5D&filter=matchName(%22%22)&filterbib=0&filtercontest=0&filtersex=&sort=BIB&listformat=jSON&pw=0'
     resp = requests.get(url, timeout=5)
     resp.raise_for_status()
     raw_data = resp.json()
 
-    start_number_counter = max(raw_data, key=lambda l: l[1])
+    start_number_counter = max(raw_data, key=lambda l: l[1])[1] + 1
 
 threading.Thread(target=fetch_run_counter, daemon=True).start()
 
 
 def add_run(id, vehicle, team, driver, transponder):
-    url_new = f'http://192.168.0.58:4880/_UPFPQ/api/part/new?lang=en&firstfree=0&bib={id}&v2=true&pw=0'
-    url_create = f'http://192.168.0.58:4880/_UPFPQ/api/part/savefields?lang=en&pid=41&nohistory=1&pw=0'
-    data_create = {"Bib":str(id),"Lastname":"","Firstname":driver,"Title":"","DateOfBirth":"","Sex":"","Contest":str(CONTEST_ID),"AgeGroup1":"0","Club":team,"Status":"0","Comment":"","TeamStatus":""}
-    url_assign_t = f''
-    resp = requests.get(url, timeout=5)
-    resp.raise_for_status()
-    raw_data = resp.json()
-    vehicles = []
-    for line in raw_data:
-        vehicles.append({
-            'run_id': line[1]
-        })
+    url_new = f'{RACE_RESULT_BASE_URL}/_UPFPQ/api/part/new?lang=en&firstfree=0&bib={id}&v2=true&pw=0'
+    url_create = f'{RACE_RESULT_BASE_URL}/_UPFPQ/api/part/savefields?lang=en&pid=41&nohistory=1&pw=0'
+    data_create = {"Bib":str(id),"Lastname":vehicle,"Firstname":driver,"Title":"","DateOfBirth":"","Sex":"","Contest":str(CONTEST_ID),"AgeGroup1":"0","Club":team,"Status":"0","Comment":"","TeamStatus":""}
+    url_load = f'{RACE_RESULT_BASE_URL}/_UPFPQ/api/chipfile/get?lang=en&pw=0'
+    url_save = f'{RACE_RESULT_BASE_URL}/_UPFPQ/api/chipfile/save?lang=en&pw=0'
+    
+    try:
+        print('calling new')
+        new_resp = requests.get(url_new, timeout=5)
+        new_resp.raise_for_status()
+
+        print('calling create')
+        pprint(data_create)
+        create_resp = requests.post(url_create, json=data_create, timeout=5)
+        create_resp.raise_for_status()
+
+        print('calling load')
+        load_resp = requests.get(url_load)
+        load_resp.raise_for_status()
+        load_str = create_resp.content.decode('utf-8')
+
+        print('calling save')
+        load_str += f"\n{transponder};{id}"
+        save_resp = requests.post(url_save, data=load_str.encode('utf-8'))
+        save_resp.raise_for_status()
+    except Exception as e:
+        print(e)
+        raise
+
+    return "added!"
 
 
 def load_data():
@@ -66,7 +85,8 @@ def index():
     data = load_data()
     teams = data.get("teams", [])
     vehicles = data.get("vehicles", [])
-    return render_template("index.html", teams=teams, vehicles=vehicles)
+    discipline = next(iter(c['name'] for c in CONTESTS if c['id'] == CONTEST_ID))
+    return render_template("index.html", teams=teams, vehicles=vehicles, discipline=discipline)
 
 @app.route("/data")
 def get_data():
@@ -74,7 +94,7 @@ def get_data():
 
 @app.route('/assign', methods=['POST'])
 def assign_driver_to_vehicle():
-    # expects: team (name), driver (name), vehicle (name)
+    global start_number_counter
     assignment = request.json
     team_name = assignment.get("team")
     driver = assignment.get("driver")
@@ -84,29 +104,20 @@ def assign_driver_to_vehicle():
     run_id = start_number_counter
     start_number_counter += 1
 
-    # Find team and vehicle remote_ids and transponder
+    # Find team and vehicle, get transponder
     data = load_data()
     team = next((t for t in data["teams"] if t["name"] == team_name), None)
     vehicle = next((v for v in data["vehicles"] if v["name"] == vehicle_name), None)
     if not team or not vehicle:
         return jsonify({"error": "Team or vehicle not found"}), 400
 
-    payload = {
-        "run_id": run_id,
-        "team_remote_id": team.get("remote_id", team["name"]),
-        "vehicle_remote_id": vehicle.get("remote_id", vehicle["name"]),
-        "vehicle_transponder": vehicle["transponder"],
-        "driver": driver
-    }
-
-    # Push to Race Result server
+    transponder = vehicle.get("transponder", "")
     try:
-        rr_resp = requests.post(RACE_RESULT_URL, json=payload, timeout=5)
-        rr_resp.raise_for_status()
+        result = add_run(run_id, vehicle_name, team_name, driver, transponder)
     except Exception as e:
         return jsonify({"error": "Failed to push to Race Result server", "details": str(e)}), 502
 
-    return jsonify({"message": "Assignment sent!", "assignment": payload}), 200
+    return jsonify({"message": "Assignment sent!", "result": result}), 200
 
 
 @app.route('/add_driver', methods=['POST'])

@@ -6,6 +6,7 @@
         "Dustin"
       ],
       "vehicles": [
+        "Test",
         "FS213",
         "FS218",
         "FS219",
@@ -74,6 +75,10 @@
     }
   ],
   "vehicles": [
+    {
+      "name": "Test",
+      "transponder": "ABCDEF"
+    },
     {
       "name": "FS213"
     },
