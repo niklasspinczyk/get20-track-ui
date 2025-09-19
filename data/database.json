@@ -1,7 +1,7 @@
 {
   "teams": [
     {
-      "name": "GET Racing",
+      "name": "GET racing",
       "drivers": [
         "Dustin"
       ],
@@ -80,7 +80,8 @@
       "transponder": "ABCDEF"
     },
     {
-      "name": "FS213"
+      "name": "FS213",
+      "transponder": "ZJEDJ91"
     },
     {
       "name": "FS218",
@@ -142,7 +143,7 @@
     },
     {
       "name": "Rhino4",
-      "transponder": "ZJLER66"
+      "transponder": "ZJLER56"
     }
   ]
 }
