@@ -14,6 +14,8 @@ else:
         "drivers": [],
         "vehicles": []
     }
+from app.routes import init as init_blueprint
+init_blueprint()
 
 from app.routes import app as routes_blueprint
 app.register_blueprint(routes_blueprint)

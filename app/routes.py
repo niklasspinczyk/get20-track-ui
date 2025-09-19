@@ -190,3 +190,8 @@ def admin_panel():
         global CONTEST_ID
         CONTEST_ID = contest_id
     return render_template("admin.html", contests=CONTESTS, current_id=admin_data.get("contest_id", CONTEST_ID))
+
+def init():
+    global CONTEST_ID
+    admin_data = load_admin()
+    CONTEST_ID = admin_data['contest_id']
